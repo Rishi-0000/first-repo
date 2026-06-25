@@ -559,3 +559,267 @@ B.E. Mechatronics Engineering — Terna College of Engineering, Navi Mumbai
 
 This project is open source and available under the [MIT License](LICENSE).
 
+
+# 🌱 Smart Irrigation System
+
+An Arduino-based automatic irrigation system that monitors soil moisture in real time and controls a water pump accordingly — ensuring plants are watered only when needed, saving water and eliminating manual effort.
+
+Demo - https://youtu.be/XjLtWTPPskg
+---
+
+## 📋 Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Components Required](#components-required)
+- [Circuit Diagram](#circuit-diagram)
+- [Pin Configuration](#pin-configuration)
+- [How It Works](#how-it-works)
+- [Code Explanation](#code-explanation)
+- [Threshold Calibration](#threshold-calibration)
+- [Serial Monitor Output](#serial-monitor-output)
+- [Getting Started](#getting-started)
+- [Future Improvements](#future-improvements)
+- [License](#license)
+
+---
+
+## Overview
+
+The Smart Irrigation System automatically detects when soil is dry and activates a DC water pump to irrigate. When soil moisture returns to an acceptable level, the pump is switched off. The entire logic runs on an **Arduino Uno**, reading from a **soil moisture sensor** and driving the pump via an **L293D motor driver IC**.
+
+---
+
+## ✨ Features
+
+- Automatic pump ON/OFF based on real-time soil moisture readings
+- Serial Monitor output for live debugging and moisture value tracking
+- Motor driver (L293D) safely isolates the Arduino from pump load current
+- Adjustable moisture threshold via a single constant in code
+- Low cost, low power design suitable for home gardens, pots, or small farms
+
+---
+
+## 🧰 Components Required
+
+| Component | Quantity | Description |
+|---|---|---|
+| Arduino Uno | 1 | Microcontroller — reads sensor and controls motor |
+| Soil Moisture Sensor | 1 | Analog sensor; outputs voltage proportional to moisture |
+| L293D Motor Driver IC | 1 | H-bridge IC to drive DC motor safely |
+| DC Motor / Mini Water Pump | 1 | Pumps water from reservoir to soil |
+| 9V Battery or DC Adapter | 1 | Powers the Arduino and motor |
+| Breadboard | 1 | For prototyping connections |
+| Jumper Wires | ~15 | Male-to-male and male-to-female |
+| Water tubing | As needed | Connects pump to water source and soil |
+
+---
+
+## 🔌 Circuit Diagram
+
+```
+Soil Moisture Sensor
+  VCC  ──────────────── 5V (Arduino)
+  GND  ──────────────── GND (Arduino)
+  A0   ──────────────── A3 (Arduino)
+
+L293D Motor Driver
+  Pin 1  (EN1)  ─────── Pin 9 (Arduino PWM)
+  Pin 2  (IN1)  ─────── Pin 8 (Arduino)
+  Pin 7  (IN2)  ─────── Pin 7 (Arduino)
+  Pin 3  (OUT1) ─────── DC Motor Terminal 1
+  Pin 6  (OUT2) ─────── DC Motor Terminal 2
+  Pin 8  (VSS)  ─────── 9V External Supply
+  Pin 16 (VS)   ─────── 5V (Arduino)
+  GND Pins      ─────── Common GND
+```
+
+---
+
+## 📌 Pin Configuration
+
+| Arduino Pin | Connected To | Mode |
+|---|---|---|
+| A3 | Soil Moisture Sensor (SIG) | Analog Input |
+| D7 | L293D IN2 | Digital Output |
+| D8 | L293D IN1 | Digital Output |
+| D9 | L293D Enable (EN1) | PWM Output |
+| 5V | Sensor VCC, L293D VS | Power |
+| GND | Common ground | Ground |
+
+---
+
+## ⚙️ How It Works
+
+1. The soil moisture sensor is inserted into the soil. It outputs an **analog voltage** on pin A3.
+2. A **high analog value (> 600)** means the soil is **dry** — less moisture = higher resistance = higher voltage.
+3. A **low analog value (≤ 600)** means the soil is **wet/moist**.
+4. Based on this reading, the Arduino sends control signals to the **L293D motor driver**:
+   - **Dry soil** → IN1 = HIGH, IN2 = LOW, Enable = 255 → Pump runs at full speed
+   - **Wet soil** → IN1 = LOW, IN2 = LOW, Enable = 0 → Pump stops
+5. Readings are printed to the **Serial Monitor** every second for live monitoring.
+
+### Logic Flow
+
+```
+START
+  │
+  ▼
+Read moistureValue from A3
+  │
+  ├─── moistureValue > 600 ──► Soil DRY  ──► Turn Pump ON  (full speed)
+  │
+  └─── moistureValue ≤ 600 ──► Soil WET  ──► Turn Pump OFF
+  │
+  ▼
+Wait 1 second → Repeat
+```
+
+---
+
+## 🧑‍💻 Code Explanation
+
+```cpp
+// Smart Irrigation System
+int sensorPin = A3;     // Soil moisture sensor signal pin
+int in1 = 8;            // L293D direction control pin 1
+int in2 = 7;            // L293D direction control pin 2
+int enablePin = 9;      // L293D enable pin (PWM for speed control)
+int moistureValue;      // Stores analog reading from sensor
+
+void setup() {
+  pinMode(in1, OUTPUT);
+  pinMode(in2, OUTPUT);
+  pinMode(enablePin, OUTPUT);
+  Serial.begin(9600);
+
+  // Ensure pump is OFF on startup
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, LOW);
+  analogWrite(enablePin, 0);
+}
+
+void loop() {
+  moistureValue = analogRead(sensorPin);   // Read soil moisture (0–1023)
+  Serial.print("Moisture Value = ");
+  Serial.println(moistureValue);
+
+  if (moistureValue > 600) {               // Threshold: dry soil
+    Serial.println("Soil is Dry - Pump ON");
+    digitalWrite(in1, HIGH);
+    digitalWrite(in2, LOW);
+    analogWrite(enablePin, 255);           // Full speed
+  } else {
+    Serial.println("Soil is Wet - Pump OFF");
+    digitalWrite(in1, LOW);
+    digitalWrite(in2, LOW);
+    analogWrite(enablePin, 0);             // Stop motor
+  }
+
+  delay(1000);                             // Check every 1 second
+}
+```
+
+### Key functions used
+
+| Function | Purpose |
+|---|---|
+| `analogRead(sensorPin)` | Reads moisture level as a value from 0 to 1023 |
+| `digitalWrite(in1/in2, HIGH/LOW)` | Sets motor rotation direction via L293D |
+| `analogWrite(enablePin, 255/0)` | Controls motor speed using PWM (0 = off, 255 = full) |
+| `Serial.println()` | Prints live readings to Serial Monitor for debugging |
+| `delay(1000)` | Waits 1 second between each sensor reading cycle |
+
+---
+
+## 🎛️ Threshold Calibration
+
+The default threshold is set to **600** out of a possible 1023. You may need to adjust this depending on your sensor model and soil type.
+
+**To calibrate:**
+1. Insert the sensor into completely **dry soil** → note the value in Serial Monitor (should be ~700–900)
+2. Water the soil until moist → note the value (should be ~200–400)
+3. Set your threshold to a value between the two readings
+
+```cpp
+// Change this line in loop() to adjust sensitivity
+if (moistureValue > 600)   // ← Adjust 600 to your calibrated value
+```
+
+| Moisture State | Typical Analog Value |
+|---|---|
+| Completely dry | 700 – 1023 |
+| Partially dry | 500 – 700 |
+| Moist | 200 – 500 |
+| Saturated / submerged | 0 – 200 |
+
+---
+
+## 📟 Serial Monitor Output
+
+Open the Serial Monitor at **9600 baud** to see live output:
+
+```
+Moisture Value = 743
+Soil is Dry - Pump ON
+Moisture Value = 720
+Soil is Dry - Pump ON
+Moisture Value = 480
+Soil is Wet - Pump OFF
+Moisture Value = 310
+Soil is Wet - Pump OFF
+```
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- [Arduino IDE](https://www.arduino.cc/en/software) installed
+- USB Type-B cable (Arduino Uno to PC)
+
+### Steps
+
+1. **Clone this repository**
+   ```bash
+   git clone https://github.com/your-username/smart-irrigation-system.git
+   cd smart-irrigation-system
+   ```
+
+2. **Open the sketch**
+   Open `smart_irrigation.ino` in Arduino IDE
+
+3. **Connect hardware**
+   Wire up components as shown in the circuit diagram above
+
+4. **Upload the code**
+   Select `Tools → Board → Arduino Uno`, choose the correct COM port, and click **Upload**
+
+5. **Monitor output**
+   Open `Tools → Serial Monitor`, set baud rate to **9600**
+
+6. **Test**
+   Insert the sensor into dry soil and watch the pump activate automatically
+
+---
+
+## 🔮 Future Improvements
+
+- Add an **LCD display** to show moisture % and pump status without a laptop
+- Integrate a **DHT11 sensor** for temperature and humidity monitoring
+- Add a **RTC module** for time-based irrigation scheduling
+- Use **ESP8266/ESP32** for Wi-Fi and remote monitoring via a mobile app
+- Add a **water level sensor** in the reservoir to prevent dry running of the pump
+- Implement **multiple soil zones** with independent sensors and valves
+
+---
+
+## 📄 License
+
+This project is open source and available under the [MIT License](LICENSE).
+
+---
+
+> Built with ❤️ using Arduino Uno | Soil Moisture Sensor | L293D Motor Driver | DC Water Pump
+
